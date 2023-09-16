@@ -56,16 +56,16 @@ class VAE(nn.Module):
         eps = torch.randn_like(std)
         return eps * std + mu
 
-    def forward(self, input: torch.Tensor, **kwargs) -> (torch.Tensor, torch.Tensor, torch.Tensor):
+    def forward(self, input: torch.Tensor, **kwargs) -> (torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor):
         mu, log_var = self.encode(input)
         z = self.reparameterize(mu, log_var)
-        return self.decode(z), mu, log_var
+        return self.decode(z), mu, log_var, None
 
     def loss_function(self, logits: torch.Tensor, target: torch.Tensor,
                       mu: torch.Tensor, log_var: torch.Tensor) -> (torch.Tensor, torch.Tensor, torch.Tensor):
         class_loss = F.cross_entropy(logits, target)
-        kld_loss = torch.mean(-0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim = 1), dim = 0)
-        loss = class_loss + 0.01*kld_loss
+        kld_loss = torch.mean(-0.5 * torch.sum(log_var - mu ** 2 - log_var.exp(), dim = 1), dim = 0)
+        loss = class_loss + 0.001*kld_loss
         return loss, class_loss, kld_loss
 
     def sample(self,
@@ -86,11 +86,6 @@ class VAE(nn.Module):
         samples = self.decode(z)
         return samples
 
-    def generate(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
-        """
-        Given an input image x, returns the reconstructed image
-        :param x: (Tensor) [B x C x H x W]
-        :return: (Tensor) [B x C x H x W]
-        """
-
-        return self.forward(x)[0]
+    def inference(self, x: torch.Tensor) -> (torch.Tensor, torch.Tensor, torch.Tensor):
+        mu, log_var = self.encode(x)
+        return self.decode(mu), mu, log_var
